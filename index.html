@@ -37,7 +37,17 @@ button{flex:1;min-width:140px;padding:13px 16px;border:0;border-radius:14px;font
 
   <div class="card">
     <div class="grid">
-      <div><label>機種</label><select id="machine"><option value="my5">マイジャグラーV</option></select></div>
+      <div><label>機種</label><select id="machine">
+        <option value="my5">マイジャグラーV</option>
+        <option value="neoim">ネオアイムジャグラーEX</option>
+        <option value="imex">アイムジャグラーEX</option>
+        <option value="gogo3">ゴーゴージャグラー3</option>
+        <option value="happy3">ハッピージャグラーV III</option>
+        <option value="funky2">ファンキージャグラー2</option>
+        <option value="girlsSS">ジャグラーガールズSS</option>
+        <option value="mr">ミスタージャグラー</option>
+        <option value="ultra">ウルトラミラクルジャグラー</option>
+      </select></div>
       <div><label>設定</label><select id="setting"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
       <div><label>目標ゲーム数</label><input id="targetG" type="number" value="1000" min="100" step="100"></div>
       <div><label>投資上限（円）</label><input id="limitYen" type="number" value="15000" min="1000" step="1000"></div>
@@ -64,8 +74,32 @@ button{flex:1;min-width:140px;padding:13px 16px;border:0;border-radius:14px;font
 </div>
 <script>
 const specs={
-  my5:{name:'マイジャグラーV', settings:{
-    1:{bb:273.1,reg:409.6},2:{bb:270.8,reg:385.5},3:{bb:266.4,reg:336.1},4:{bb:254.0,reg:290.0},5:{bb:240.9,reg:268.6},6:{bb:229.1,reg:229.1}
+  my5:{name:'マイジャグラーV',settings:{
+    1:{bb:273.1,reg:409.6},2:{bb:270.8,reg:385.5},3:{bb:266.4,reg:336.1},4:{bb:254.0,reg:290.0},5:{bb:240.1,reg:268.6},6:{bb:229.1,reg:229.1}
+  }},
+  neoim:{name:'ネオアイムジャグラーEX',settings:{
+    1:{bb:273.1,reg:439.8},2:{bb:269.7,reg:399.6},3:{bb:269.7,reg:331.0},4:{bb:259.0,reg:315.1},5:{bb:259.0,reg:255.0},6:{bb:255.0,reg:255.0}
+  }},
+  imex:{name:'アイムジャグラーEX',settings:{
+    1:{bb:273.1,reg:439.8},2:{bb:269.7,reg:399.6},3:{bb:269.7,reg:331.0},4:{bb:259.0,reg:315.1},5:{bb:259.0,reg:255.0},6:{bb:255.0,reg:255.0}
+  }},
+  gogo3:{name:'ゴーゴージャグラー3',settings:{
+    1:{bb:259.0,reg:354.2},2:{bb:258.0,reg:332.7},3:{bb:257.0,reg:306.2},4:{bb:254.0,reg:268.6},5:{bb:247.3,reg:247.3},6:{bb:234.9,reg:234.9}
+  }},
+  happy3:{name:'ハッピージャグラーV III',settings:{
+    1:{bb:273.1,reg:397.2},2:{bb:270.8,reg:362.1},3:{bb:263.2,reg:332.7},4:{bb:254.0,reg:300.6},5:{bb:239.2,reg:273.1},6:{bb:226.0,reg:256.0}
+  }},
+  funky2:{name:'ファンキージャグラー2',settings:{
+    1:{bb:266.4,reg:439.8},2:{bb:259.0,reg:407.1},3:{bb:256.0,reg:366.1},4:{bb:249.2,reg:322.8},5:{bb:240.1,reg:299.3},6:{bb:219.9,reg:262.1}
+  }},
+  girlsSS:{name:'ジャグラーガールズSS',settings:{
+    1:{bb:273.1,reg:381.0},2:{bb:270.8,reg:350.5},3:{bb:260.1,reg:316.6},4:{bb:250.1,reg:281.3},5:{bb:243.6,reg:270.8},6:{bb:226.0,reg:252.1}
+  }},
+  mr:{name:'ミスタージャグラー',settings:{
+    1:{bb:268.6,reg:374.5},2:{bb:267.5,reg:354.2},3:{bb:260.1,reg:331.0},4:{bb:249.2,reg:291.3},5:{bb:240.9,reg:257.0},6:{bb:237.4,reg:237.4}
+  }},
+  ultra:{name:'ウルトラミラクルジャグラー',settings:{
+    1:{bb:267.5,reg:425.6},2:{bb:261.1,reg:402.1},3:{bb:256.0,reg:350.5},4:{bb:242.7,reg:322.8},5:{bb:233.2,reg:297.9},6:{bb:216.3,reg:277.7}
   }}
 };
 const COIN_PER_1000=46, G_PER_46=40, BB_PAY=240, REG_PAY=96;
@@ -122,6 +156,7 @@ function simulate(){
   document.getElementById('summaryCard').innerHTML=`
     <div class="result-title">今回の結果</div>
     <div class="stats">
+      <div class="stat"><div class="k">機種 / 設定</div><div class="v" style="font-size:14px">${specs[machine].name} / ${setting}</div></div>
       <div class="stat"><div class="k">終了G</div><div class="v">${g.toLocaleString()}G</div></div>
       <div class="stat"><div class="k">BB / REG</div><div class="v">${bb} / ${reg}</div></div>
       <div class="stat"><div class="k">合算</div><div class="v">${total?'1/'+comb.toFixed(1):'—'}</div></div>
