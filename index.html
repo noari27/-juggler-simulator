@@ -26,7 +26,7 @@ button{flex:1;min-width:140px;padding:13px 16px;border:0;border-radius:14px;font
 .stat{background:#11161d;border:1px solid var(--line);border-radius:14px;padding:12px}.stat .k{font-size:11px;color:var(--muted)}.stat .v{font-size:21px;font-weight:800;margin-top:4px}
 .positive{color:var(--good)}.negative{color:var(--bad)}
 .table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600}
-.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}.bb{background:rgba(79,140,255,.16);color:#82aaff}.reg{background:rgba(245,185,66,.16);color:#ffd166}.stop{background:rgba(255,107,107,.16);color:#ff8f8f}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}.bb{background:rgba(79,140,255,.16);color:#82aaff}.reg{background:rgba(245,185,66,.16);color:#ffd166}
 .note{font-size:12px;color:var(--muted);line-height:1.6}.result-title{font-size:18px;font-weight:800;margin-bottom:12px}.empty{color:var(--muted);text-align:center;padding:24px 0}
 </style>
 </head>
@@ -102,8 +102,15 @@ const specs={
     1:{bb:267.5,reg:425.6},2:{bb:261.1,reg:402.1},3:{bb:256.0,reg:350.5},4:{bb:242.7,reg:322.8},5:{bb:233.2,reg:297.9},6:{bb:216.3,reg:277.7}
   }}
 };
-const COIN_PER_1000=46, G_PER_46=40, BB_PAY=240, REG_PAY=96;
+
+const COIN_PER_1000=46;
+const G_PER_46=40;
+const COIN_PER_GAME=COIN_PER_1000/G_PER_46;
+const BB_PAY=240;
+const REG_PAY=96;
+
 function rand(){return Math.random()}
+
 function nextBonus(bbDen,regDen){
   const pBB=1/bbDen,pREG=1/regDen,pAny=pBB+pREG;
   const u=Math.max(1e-12,rand());
@@ -111,41 +118,120 @@ function nextBonus(bbDen,regDen){
   const type=rand()<pBB/pAny?'BB':'REG';
   return {gap,type};
 }
-function spendForGames(g, coins){
-  const need = g*(COIN_PER_1000/G_PER_46);
-  if(coins>=need) return {coins:coins-need, addYen:0};
-  const deficit=need-coins;
-  const units=Math.ceil(deficit/COIN_PER_1000);
-  return {coins:units*COIN_PER_1000-deficit, addYen:units*1000};
+
+/*
+  requestedGだけ回す処理。
+  旧版のバグは「次のボーナスまで必要な総投資」を先に計算し、
+  それが上限を超えると1Gも回さず終了していたこと。
+  新版は1000円単位で使える投資を実際に追加し、
+  上限までで回せるG数だけ必ず進めてから終了する。
+*/
+function playGames(requestedG, coins, invest, limitYen){
+  if(requestedG<=0) return {played:0, coins, invest, completed:true};
+
+  const needCoins=requestedG*COIN_PER_GAME;
+
+  // 手持ちだけで全部回せる
+  if(coins+1e-9>=needCoins){
+    return {
+      played:requestedG,
+      coins:Math.max(0,coins-needCoins),
+      invest,
+      completed:true
+    };
+  }
+
+  // 全部回すのに必要な追加投資単位
+  const deficit=Math.max(0,needCoins-coins);
+  const unitsNeeded=Math.ceil((deficit-1e-9)/COIN_PER_1000);
+  const affordableUnits=Math.max(0,Math.floor((limitYen-invest)/1000));
+  const buyUnits=Math.min(unitsNeeded,affordableUnits);
+
+  coins += buyUnits*COIN_PER_1000;
+  invest += buyUnits*1000;
+
+  // 追加投資後、全部回せる
+  if(coins+1e-9>=needCoins){
+    return {
+      played:requestedG,
+      coins:Math.max(0,coins-needCoins),
+      invest,
+      completed:true
+    };
+  }
+
+  // 上限まで投資しても足りない場合は、持ちメダルで回せるところまで回す
+  const playable=Math.max(0,Math.floor((coins+1e-9)/COIN_PER_GAME));
+  coins=Math.max(0,coins-playable*COIN_PER_GAME);
+
+  return {
+    played:playable,
+    coins,
+    invest,
+    completed:false
+  };
 }
+
 function simulate(){
   const machine=document.getElementById('machine').value;
   const setting=+document.getElementById('setting').value;
   const targetG=Math.max(100,+document.getElementById('targetG').value||1000);
-  const limitYen=Math.max(1000,+document.getElementById('limitYen').value||15000);
+  // 投資は1000円単位なので、入力上限を1000円単位で利用
+  const rawLimit=Math.max(0,+document.getElementById('limitYen').value||0);
+  const limitYen=Math.floor(rawLimit/1000)*1000;
   const spec=specs[machine].settings[setting];
-  let g=0, coins=0, invest=0, bb=0, reg=0, rows=[], stopped='目標G数到達';
+
+  let g=0, coins=0, invest=0, bb=0, reg=0, rows=[];
+  let stopped='目標G数到達';
 
   while(g<targetG){
     const nb=nextBonus(spec.bb,spec.reg);
     const remaining=targetG-g;
+
+    // 次の当たりが目標Gより後なら、目標まで回す
     if(nb.gap>remaining){
-      const s=spendForGames(remaining,coins);
-      if(invest+s.addYen>limitYen){
+      const p=playGames(remaining,coins,invest,limitYen);
+      g+=p.played; coins=p.coins; invest=p.invest;
+
+      if(!p.completed){
         stopped='投資上限到達';
-        break;
+      }else{
+        stopped='目標G数到達';
       }
-      invest+=s.addYen; coins=s.coins; g=targetG; break;
+      break;
     }
-    const s=spendForGames(nb.gap,coins);
-    if(invest+s.addYen>limitYen){
+
+    // 次のボーナスまで回す。上限で途中停止した場合も、回せたG数は反映する
+    const p=playGames(nb.gap,coins,invest,limitYen);
+    g+=p.played; coins=p.coins; invest=p.invest;
+
+    if(!p.completed){
       stopped='投資上限到達';
       break;
     }
-    invest+=s.addYen; coins=s.coins; g+=nb.gap;
-    if(nb.type==='BB'){bb++;coins+=BB_PAY}else{reg++;coins+=REG_PAY}
-    rows.push({g,type:nb.type,gap:nb.gap,invest,coins:Math.max(0,Math.round(coins))});
-    if(targetG-g<=100){stopped='残り100G以内のボーナスで終了';break}
+
+    // ボーナス到達
+    if(nb.type==='BB'){
+      bb++;
+      coins+=BB_PAY;
+    }else{
+      reg++;
+      coins+=REG_PAY;
+    }
+
+    rows.push({
+      g,
+      type:nb.type,
+      gap:nb.gap,
+      invest,
+      coins:Math.max(0,Math.round(coins))
+    });
+
+    // 指定Gまで残り100G以内なら、このボーナスで終了
+    if(targetG-g<=100){
+      stopped='残り100G以内のボーナスで終了';
+      break;
+    }
   }
 
   const cash=Math.floor(coins/COIN_PER_1000*1000);
@@ -168,8 +254,18 @@ function simulate(){
     </div>`;
 
   const tbody=document.getElementById('history');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="5" class="empty">ボーナス当選前に終了しました。</td></tr>';return}
-  tbody.innerHTML=rows.map(r=>`<tr><td>${r.g.toLocaleString()}G</td><td><span class="badge ${r.type==='BB'?'bb':'reg'}">${r.type}</span></td><td>${r.gap.toLocaleString()}G</td><td>${r.invest.toLocaleString()}円</td><td>${r.coins.toLocaleString()}枚</td></tr>`).join('');
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="5" class="empty">${g>0?`${g.toLocaleString()}Gまで回し、ボーナス当選前に終了しました。`:'ボーナス当選前に終了しました。'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td>${r.g.toLocaleString()}G</td>
+    <td><span class="badge ${r.type==='BB'?'bb':'reg'}">${r.type}</span></td>
+    <td>${r.gap.toLocaleString()}G</td>
+    <td>${r.invest.toLocaleString()}円</td>
+    <td>${r.coins.toLocaleString()}枚</td>
+  </tr>`).join('');
 }
 </script>
 </body>
